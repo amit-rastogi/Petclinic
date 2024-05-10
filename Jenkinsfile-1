@@ -1,0 +1,24 @@
+pipeline {
+    agent { label 'docker-agent' }
+    tools {
+        jdk 'jdk-11'
+        maven 'maven'
+    }
+
+    stages {
+        stage('git checkout') {
+            steps {
+                git branch: 'main', changelog: false, poll: false, url: 'https://github.com/amit-rastogi/Petclinic.git'
+            }
+        }
+        
+        stage('sonarqube scan') {
+            steps {
+                sh 'mvn clean package'
+                withSonarQubeEnv(installationName: 'sonarqube') {
+                     sh 'mvn sonar:sonar'
+                }
+            }
+        }
+    }
+}
