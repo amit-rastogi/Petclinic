@@ -1,23 +1,73 @@
 pipeline {
-    agent { label 'docker-agent' }
+    agent { label 'jenkins-controller-agent' }
     tools {
         jdk 'jdk-11'
         maven 'maven'
     }
-
+    
     stages {
-        stage('git checkout') {
+        stage('checkout') {
             steps {
                 git branch: 'main', changelog: false, poll: false, url: 'https://github.com/amit-rastogi/Petclinic.git'
             }
         }
         
+        stage('compile') {
+            steps {
+                sh 'mvn clean compile'
+            }
+        }
+        
+        stage('test') {
+            steps {
+                sh 'mvn test'
+            }
+        }
+        
         stage('sonarqube scan') {
             steps {
-                sh 'mvn clean package'
                 withSonarQubeEnv(installationName: 'sonarqube') {
-                     sh 'mvn sonar:sonar'
+                     sh "mvn sonar:sonar"
                 }
+            }
+        }
+        
+        stage('build') {
+            steps {
+                sh 'mvn clean package'
+            }
+        }
+        
+        stage('OWASP dependency check') {
+            steps {
+                dependencyCheck additionalArguments: ''' 
+                    -o './'
+                    -s './'
+                    -f 'ALL' 
+                    --prettyPrint''', odcInstallation: 'owasp'
+        
+                dependencyCheckPublisher pattern: 'dependency-check-report.xml'
+            }
+        }
+        
+        stage('artifact upload to nexus'){
+            steps {
+                configFileProvider([configFile(fileId: 'f0a793d7-c5a9-4866-b293-f0859dfab1c3', variable: 'mavensettings')]) {
+                   sh 'mvn -s ${mavensettings} clean deploy -Dmaven.test.skip=true'
+                }
+            }
+        }
+        
+        stage('Build and publish docker image') {
+            environment {
+              DOCKER_CRED = credentials('docker-token')
+            }
+            steps {
+                sh '''
+                  docker build -t amitrastogi/petclinic:1.0 .
+                  docker login -u ${DOCKER_CRED_USR} -p ${DOCKER_CRED_PSW}
+                  docker push amitrastogi/petclinic:1.0
+                 '''
             }
         }
     }
