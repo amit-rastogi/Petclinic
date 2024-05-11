@@ -549,7 +549,7 @@
         <repository>
             <id>maven-releases</id>
             <name>maven-releases</name>
-            <url>http://ubuntu:8081/repository/maven-releases/</url>
+            <url>http://172.17.0.4:8081/repository/maven-releases/</url>
         </repository>
     </repositories>
 
